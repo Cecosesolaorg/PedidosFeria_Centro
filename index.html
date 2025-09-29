@@ -377,6 +377,7 @@
 
         // Click/Touch para dispositivos móviles
         canvas.addEventListener('click', () => {
+             // Inicia el juego si no está corriendo, o salta si ya está corriendo.
              if (!isGameRunning) {
                 startGame();
             } else {
