@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KreaByte - Mantenimiento Programado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+        /* Oculta la barra de desplazamiento horizontal que podría aparecer durante el juego */
+        .game-area {
+            position: relative;
+            overflow: hidden;
+            background-color: #000000; /* Fondo del juego en negro puro */
+            border-radius: 0.75rem; 
+            border: 1px solid #10b981; /* Borde verde para destacar */
+        }
+
+        /* Estilo para la línea del suelo */
+        #dinoGameCanvas {
+            display: block;
+            touch-action: manipulation; /* Permite el tap para saltar en móviles */
+        }
+
+        /* --- ESTILOS PARA EL EFECTO DE PARTÍCULAS (NEÓN PULSANTE) --- */
+        /* COLOR: VERDE NEÓN BRILLANTE (#A3E635 / lime-400) */
+        .neon-text {
+            color: #ffffff; /* Color de la fuente blanco */
+            font-weight: 800;
+            text-shadow: 
+                0 0 7px #a3e635, /* Brillo verde */
+                0 0 10px #a3e635,
+                0 0 20px #a3e635; 
+            animation: neon-pulse 2.5s infinite alternate; /* Animación de pulsación */
+        }
+
+        /* Define la animación de pulsación */
+        @keyframes neon-pulse {
+            0% {
+                opacity: 0.9;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1.02);
+            }
+        }
+        /* --- FIN ESTILOS PARTÍCULAS --- */
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <main class="bg-gray-800 w-full max-w-lg rounded-xl shadow-2xl p-8 md:p-10 border-t-8 border-lime-500">
+
+        <!-- Saludo Dinámico y Hora Actual -->
+        <div class="text-center mb-6">
+            <!-- Colores ajustados para modo oscuro y verde neón -->
+            <p id="greeting" class="text-xl font-semibold text-lime-400"></p>
+            <p id="current-time" class="text-sm text-gray-400 mt-1"></p>
+        </div>
+
+        <div class="text-center">
+            <!-- Título Principal con efecto de Neón (Verde) -->
+            <h1 class="text-4xl neon-text mb-4">¡Estamos en Mantenimiento!</h1>
+            <!-- Color de texto ajustado para modo oscuro -->
+            <p class="text-lg text-gray-300">Mientras optimizamos el servicio, ¿por qué no juegas un poco?</p>
+        </div>
+
+        <!-- Área del Mini Juego del Dinosaurio -->
+        <!-- Fondo ajustado a negro puro (#000000) -->
+        <div class="mt-8 shadow-inner game-area h-72 flex items-center justify-center">
+            <!-- Canvas donde se dibuja el juego -->
+            <canvas id="dinoGameCanvas" width="512" height="288" class="w-full h-full"></canvas>
+
+            <!-- Mensaje de inicio (se oculta al empezar el juego) -->
+            <div id="startMessage" class="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-50 transition-opacity duration-300">
+                <p class="text-xl font-bold text-white mb-2">Juego de Mantenimiento</p>
+                <!-- Colores ajustados para modo oscuro -->
+                <p class="text-sm text-gray-300 font-medium">Presiona <span class="font-extrabold px-2 py-1 bg-gray-100 rounded shadow-md text-stone-900">ESPACIO</span> o TOCA para empezar</p>
+            </div>
+        </div>
+
+        <!-- Detalles del Horario (ahora debajo del juego para no interferir) -->
+        <!-- Fondo ajustado a un gris oscuro (gray-700) -->
+        <div class="mt-4 text-center bg-gray-700 p-4 rounded-lg shadow-md max-w-sm mx-auto">
+            <!-- Colores ajustados para modo oscuro y verde neón -->
+            <h2 class="text-xl font-bold text-lime-300 mb-2">Mantenimiento volveremos en breve </h2>
+        </div>
+
+        <div class="mt-8 text-center text-base text-gray-300">
+            <p>Disculpa las molestias. Volvemos en línea muy pronto con un mejor rendimiento. ¡Gracias por tu paciencia!</p>
+        </div>
+    </main>
+
+    <script>
+        // --- LÓGICA DEL SALUDO Y TIEMPO ---
+        function updateTimeAndGreeting() {
+            const now = new Date();
+            const hour = now.getHours();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' };
+            const timeString = now.toLocaleTimeString('es-ES', options);
+            
+            let greetingText = '';
+
+            if (hour >= 5 && hour < 12) {
+                greetingText = 'Buenos días';
+            } else if (hour >= 12 && hour < 19) {
+                greetingText = 'Buenas tardes';
+            } else {
+                greetingText = 'Buenas noches';
+            }
+
+            document.getElementById('greeting').textContent = greetingText + ',';
+            document.getElementById('current-time').textContent = 'Tu hora local es: ' + timeString;
+        }
+
+        // --- LÓGICA DEL JUEGO DEL DINOSAURIO ---
+
+        const canvas = document.getElementById('dinoGameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startMessage = document.getElementById('startMessage');
+
+        // Variables del Juego
+        let isGameRunning = false;
+        let isJumping = false;
+        let verticalVelocity = 0;
+        const gravity = 1;
+        const jumpStrength = 18;
+        let score = 0;
+        let gameSpeed = 5;
+        let obstacles = [];
+        let frameCount = 0;
+        let groundLevelY = 0; // Almacenará la posición Y del suelo dinámico
+
+        // Propiedades del Dinosaurio (cuadrado simple)
+        const dino = {
+            width: 20,
+            height: 30,
+            x: 50,
+            y: 0 
+        };
+
+        // Función de inicialización y reseteo
+        function initGame() {
+            // 1. Asegurar que el canvas ocupe todo el espacio del contenedor
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // 2. Calcular el nivel del suelo dinámicamente
+            groundLevelY = canvas.height - dino.height; 
+            
+            // 3. Resetear el estado del juego
+            dino.y = groundLevelY;
+            isGameRunning = false;
+            isJumping = false;
+            verticalVelocity = 0;
+            score = 0;
+            gameSpeed = 5;
+            obstacles = [];
+            frameCount = 0;
+
+            drawInitialScreen();
+        }
+
+        // Dibuja la pantalla inicial o de "Game Over"
+        function drawInitialScreen(gameOver = false) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGround();
+
+            if (gameOver || !isGameRunning) {
+                // Mostrar el mensaje solo si el juego no ha empezado o si terminó
+                startMessage.classList.remove('opacity-0', 'pointer-events-none');
+                startMessage.classList.add('opacity-100');
+            } else {
+                 // Ocultar el mensaje si el juego está corriendo
+                startMessage.classList.remove('opacity-100');
+                startMessage.classList.add('opacity-0', 'pointer-events-none'); 
+            }
+            
+            if (gameOver) {
+                // Dibujar el dinosaurio chocado
+                ctx.fillStyle = '#f87171'; // Rojo (Game Over)
+                ctx.fillRect(dino.x, dino.y, dino.width, dino.height); 
+
+                ctx.fillStyle = '#a3e635'; // Verde Neón para el texto de Game Over
+                ctx.font = 'bold 30px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('FIN DEL JUEGO', canvas.width / 2, canvas.height / 2 - 20);
+                
+                ctx.font = '16px Inter';
+                ctx.fillText(`Puntaje: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
+                
+                ctx.font = '14px Inter';
+                ctx.fillText('Presiona ESPACIO/TOCA para reiniciar', canvas.width / 2, canvas.height / 2 + 40);
+
+            } else {
+                // Dibujar el dinosaurio en reposo (Verde Neón)
+                ctx.fillStyle = '#a3e635'; 
+                ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+            }
+        }
+
+
+        // Inicia el juego y oculta el mensaje
+        function startGame() {
+            if (!isGameRunning) {
+                // Ocultar el mensaje antes de iniciar el loop de juego
+                startMessage.classList.remove('opacity-100');
+                startMessage.classList.add('opacity-0', 'pointer-events-none'); 
+                
+                initGame(); 
+                isGameRunning = true;
+                gameLoop();
+            }
+        }
+
+        // --- Dibujo de Elementos ---
+
+        function drawDino() {
+            ctx.fillStyle = '#a3e635'; // Verde Neón (dino)
+            ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+        }
+
+        function drawCactus(cactus) {
+            ctx.fillStyle = '#10b981'; // Un verde un poco más oscuro y sólido (esmeralda-600)
+            ctx.fillRect(cactus.x, cactus.y, cactus.width, cactus.height);
+        }
+
+        function drawGround() {
+            // Línea de suelo en verde sólido
+            ctx.strokeStyle = '#34d399'; 
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // Dibujar la línea un poco más arriba del borde inferior del canvas
+            ctx.moveTo(0, canvas.height - 1);
+            ctx.lineTo(canvas.width, canvas.height - 1);
+            ctx.stroke();
+        }
+
+        function drawScore() {
+            ctx.fillStyle = '#a3e635'; // Texto de puntaje en Verde Neón
+            ctx.font = '16px Inter';
+            ctx.textAlign = 'right';
+            ctx.fillText('Puntaje: ' + score, canvas.width - 20, 30);
+        }
+
+        // --- Lógica del Juego ---
+
+        function jump() {
+            if (!isGameRunning) {
+                // Si el juego no está corriendo, no saltes
+                return;
+            }
+            if (!isJumping) {
+                isJumping = true;
+                verticalVelocity = -jumpStrength;
+            }
+        }
+
+        function handleDinoMovement() {
+            if (isJumping) {
+                verticalVelocity += gravity; // Aplica gravedad
+                dino.y += verticalVelocity;
+
+                // Si toca el suelo (usando la variable dinámica groundLevelY)
+                if (dino.y >= groundLevelY) {
+                    dino.y = groundLevelY;
+                    isJumping = false;
+                    verticalVelocity = 0;
+                }
+            }
+        }
+
+        function spawnObstacle() {
+            // Factor de aparición normal: 90 a 120 frames
+            let spawnRange = 90; 
+            
+            // Si el puntaje es alto, el rango de aparición se reduce (más obstáculos)
+            if (score > 30) {
+                 spawnRange = 60; // Aparece más rápido (entre 60 y 90 frames)
+            } else if (score > 15) {
+                spawnRange = 75; // Aparece un poco más rápido (entre 75 y 105 frames)
+            }
+
+
+            if (frameCount % (Math.floor(Math.random() * 30) + spawnRange) === 0) {
+                const cactusHeight = 20 + Math.random() * 20; 
+                
+                const cactus = {
+                    width: 15 + Math.random() * 10, 
+                    height: cactusHeight, 
+                    x: canvas.width,
+                    y: groundLevelY + (dino.height - cactusHeight)
+                };
+
+                obstacles.push(cactus);
+            }
+        }
+
+        function handleObstacles() {
+            for (let i = 0; i < obstacles.length; i++) {
+                const cactus = obstacles[i];
+                cactus.x -= gameSpeed; // Mueve el cactus a la izquierda
+                drawCactus(cactus);
+
+                // Colisión (bounding box simple)
+                if (
+                    dino.x < cactus.x + cactus.width &&
+                    dino.x + dino.width > cactus.x &&
+                    dino.y < cactus.y + cactus.height &&
+                    dino.y + dino.height > cactus.y
+                ) {
+                    // ¡Colisión! Game Over
+                    isGameRunning = false;
+                    drawInitialScreen(true);
+                    return;
+                }
+
+                // Eliminar obstáculos que están fuera de la pantalla
+                if (cactus.x + cactus.width < 0) {
+                    obstacles.splice(i, 1);
+                    i--; // Ajustar el índice
+                    score++; // Aumenta el puntaje por cada obstáculo pasado
+                }
+            }
+            // Aumentar la velocidad del juego más rápido
+            gameSpeed += 0.01; 
+        }
+
+        // Bucle Principal del Juego
+        function gameLoop() {
+            if (!isGameRunning) return;
+
+            // 1. Limpiar Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 2. Ocultar el mensaje (solo para asegurar que no se muestre)
+            startMessage.classList.remove('opacity-100');
+            startMessage.classList.add('opacity-0', 'pointer-events-none'); 
+
+            // 3. Dibujar Suelo
+            drawGround();
+
+            // 4. Manejar el Dinosaurio (Movimiento y Dibujo)
+            handleDinoMovement();
+            drawDino();
+
+            // 5. Manejar Obstáculos (Generación, Movimiento y Colisión)
+            spawnObstacle();
+            handleObstacles();
+
+            // 6. Dibujar Puntaje
+            drawScore();
+
+            frameCount++;
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Eventos de Entrada ---
+
+        // Teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault(); // Previene el scroll de la página
+                if (!isGameRunning) {
+                    startGame();
+                } else {
+                    jump();
+                }
+            }
+        });
+
+        // Click/Touch para dispositivos móviles
+        canvas.addEventListener('click', () => {
+             if (!isGameRunning) {
+                startGame();
+            } else {
+                jump();
+            }
+        });
+
+        // Asegurar que el canvas se redimensione y se inicialice correctamente al cargar la página
+        window.addEventListener('load', () => {
+            updateTimeAndGreeting();
+            setInterval(updateTimeAndGreeting, 60000); 
+            initGame();
+        });
+
+        // Redimensionar el canvas si la ventana cambia de tamaño
+        window.addEventListener('resize', initGame);
+
+    </script>
+</body>
+</html>
