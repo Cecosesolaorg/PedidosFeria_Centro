@@ -127,7 +127,7 @@
             document.getElementById('current-time').textContent = 'Tu hora local es: ' + timeString;
         }
 
-        // --- LÓGICA DEL JUEGO DEL DINOSAURIO ---
+        // --- LÓGICA DEL JUEGO (DISCO DURO VS VIRUS) ---
 
         const canvas = document.getElementById('dinoGameCanvas');
         const ctx = canvas.getContext('2d');
@@ -137,39 +137,41 @@
         let isGameRunning = false;
         let isJumping = false;
         let verticalVelocity = 0;
-        const gravity = 1.5; // AUMENTADA: La gravedad es más fuerte, el dinosaurio cae más rápido.
-        const jumpStrength = 14; // REDUCIDA: La fuerza de salto es menor, el dinosaurio salta más bajo.
+        const gravity = 0.9; // REDUCIDA (Fácil)
+        const jumpStrength = 18; // AUMENTADA (Fácil)
         let score = 0;
+        let healthPoints = 3; // Puntos de vida iniciales
+        const MAX_HEALTH = 5; // Puntos de vida máximos
         let gameSpeed = 5;
         let obstacles = [];
+        let collectibles = []; // Nuevos coleccionables (Avast)
         let frameCount = 0;
-        let groundLevelY = 0; // Almacenará la posición Y del suelo dinámico
+        let groundLevelY = 0; 
 
-        // Propiedades del Dinosaurio (cuadrado simple)
-        const dino = {
-            width: 20,
-            height: 30,
+        // Propiedades del Disco Duro (Player)
+        const dino = { 
+            width: 40, 
+            height: 40, 
             x: 50,
             y: 0 
         };
 
         // Función de inicialización y reseteo
         function initGame() {
-            // 1. Asegurar que el canvas ocupe todo el espacio del contenedor
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
             
-            // 2. Calcular el nivel del suelo dinámicamente
             groundLevelY = canvas.height - dino.height; 
             
-            // 3. Resetear el estado del juego
             dino.y = groundLevelY;
             isGameRunning = false;
             isJumping = false;
             verticalVelocity = 0;
             score = 0;
+            healthPoints = 3; // Resetear salud
             gameSpeed = 5;
             obstacles = [];
+            collectibles = [];
             frameCount = 0;
 
             drawInitialScreen();
@@ -181,36 +183,31 @@
             drawGround();
 
             if (gameOver || !isGameRunning) {
-                // Mostrar el mensaje solo si el juego no ha empezado o si terminó
                 startMessage.classList.remove('opacity-0', 'pointer-events-none');
                 startMessage.classList.add('opacity-100');
             } else {
-                 // Ocultar el mensaje si el juego está corriendo
                 startMessage.classList.remove('opacity-100');
                 startMessage.classList.add('opacity-0', 'pointer-events-none'); 
             }
             
             if (gameOver) {
-                // Dibujar el dinosaurio chocado
-                ctx.fillStyle = '#f87171'; // Rojo (Game Over)
-                ctx.fillRect(dino.x, dino.y, dino.width, dino.height); 
+                // Dibujar el Disco Duro chocado (rojo)
+                drawDino('#f87171');
 
                 ctx.fillStyle = '#a3e635'; // Verde Neón para el texto de Game Over
                 ctx.font = 'bold 30px Inter';
                 ctx.textAlign = 'center';
-                ctx.fillText('FIN DEL JUEGO', canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillText('¡SISTEMA CRASH!', canvas.width / 2, canvas.height / 2 - 20); 
                 
                 ctx.font = '16px Inter';
-                ctx.fillText(`Puntaje: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
+                ctx.fillText(`Virus Evadidos: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
                 
-                // Texto para reiniciar ahora es más genérico
                 ctx.font = '14px Inter';
                 ctx.fillText('Presiona ESPACIO/TOCA para reiniciar', canvas.width / 2, canvas.height / 2 + 40);
 
             } else {
-                // Dibujar el dinosaurio en reposo (Verde Neón)
-                ctx.fillStyle = '#a3e635'; 
-                ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+                // Dibujar el Disco Duro en reposo
+                drawDino('#a3e635');
             }
         }
 
@@ -218,7 +215,6 @@
         // Inicia el juego y oculta el mensaje
         function startGame() {
             if (!isGameRunning) {
-                // Ocultar el mensaje antes de iniciar el loop de juego
                 startMessage.classList.remove('opacity-100');
                 startMessage.classList.add('opacity-0', 'pointer-events-none'); 
                 
@@ -230,22 +226,146 @@
 
         // --- Dibujo de Elementos ---
 
-        function drawDino() {
-            ctx.fillStyle = '#a3e635'; // Verde Neón (dino)
-            ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+        function drawDino(color) {
+            const x = dino.x;
+            const y = dino.y;
+            const w = dino.width;
+            const h = dino.height;
+
+            // 1. Cuerpo principal del Disco Duro (caja rectangular)
+            ctx.fillStyle = '#94a3b8'; // Gris oscuro para la carcasa
+            ctx.fillRect(x, y, w, h);
+
+            // 2. Tapa/Plato (círculo interior)
+            ctx.fillStyle = '#475569'; // Gris más oscuro para el plato
+            ctx.beginPath();
+            ctx.arc(x + w * 0.4, y + h * 0.5, w * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. LED de actividad (el color actual indica si está chocado o normal)
+            ctx.fillStyle = color; // Usar el color del juego (neón o rojo)
+            ctx.fillRect(x + w * 0.8, y + h * 0.1, w * 0.1, h * 0.1); 
         }
 
-        function drawCactus(cactus) {
-            ctx.fillStyle = '#10b981'; // Un verde un poco más oscuro y sólido (esmeralda-600)
-            ctx.fillRect(cactus.x, cactus.y, cactus.width, cactus.height);
+        // Dibuja el obstáculo base (Virus)
+        function drawVirus(obstacle) {
+            const x = obstacle.x;
+            const y = obstacle.y;
+            const w = obstacle.width;
+            const h = obstacle.height;
+
+            ctx.fillStyle = '#10b981'; 
+            // Cuerpo del virus (círculo simple)
+            ctx.beginPath();
+            ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dibujar picos/antenas
+            ctx.fillRect(x + w / 0.8, y + h * 0.4, w * 0.1, h * 0.2); 
+            ctx.fillRect(x - w * 0.1, y + h * 0.4, w * 0.1, h * 0.2); 
+            ctx.fillRect(x + w * 0.4, y - h * 0.1, w * 0.2, h * 0.1); 
+            
+            // Dibujar núcleo rojo
+            ctx.fillStyle = '#f87171'; // Rojo de advertencia
+            ctx.fillRect(x + w * 0.4, y + h * 0.4, w * 0.2, h * 0.2);
         }
+
+        // Dibuja el obstáculo Troyano (Caja de regalo maliciosa)
+        function drawTrojan(obstacle) {
+            const x = obstacle.x;
+            const y = obstacle.y;
+            const w = obstacle.width;
+            const h = obstacle.height;
+
+            ctx.fillStyle = '#f97316'; // Naranja (peligro)
+            // Caja
+            ctx.fillRect(x, y, w, h);
+            
+            // Lazo (amarillo)
+            ctx.fillStyle = '#facc15'; 
+            ctx.fillRect(x + w * 0.4, y, w * 0.2, h);
+            ctx.fillRect(x, y + h * 0.4, w, h * 0.2);
+            
+            // Calavera (mini-advertencia)
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x + w * 0.5, y + h * 0.5, w * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Dibuja el obstáculo Bomba Lógica (Cuadrado con mecha)
+        function drawLogicBomb(obstacle) {
+            const x = obstacle.x;
+            const y = obstacle.y;
+            const w = obstacle.width;
+            const h = obstacle.height;
+
+            ctx.fillStyle = '#dc2626'; // Rojo oscuro (bomba)
+            // Caja bomba
+            ctx.fillRect(x, y, w, h);
+
+            // Mecha (palo gris)
+            ctx.fillStyle = '#4b5563'; 
+            ctx.fillRect(x + w * 0.8, y - h * 0.1, w * 0.05, h * 0.2);
+
+            // Chispas/fuego (amarillo)
+            ctx.fillStyle = '#facc15'; 
+            ctx.fillRect(x + w * 0.8, y - h * 0.1, w * 0.15, h * 0.05);
+
+            // Detalle (negro)
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x + w * 0.2, y + h * 0.3, w * 0.6, h * 0.4);
+        }
+
+        function drawObstacle(obstacle) {
+            switch (obstacle.type) {
+                case 'trojan':
+                    drawTrojan(obstacle);
+                    break;
+                case 'bomb':
+                    drawLogicBomb(obstacle);
+                    break;
+                case 'virus':
+                default:
+                    drawVirus(obstacle);
+                    break;
+            }
+        }
+        
+        // Dibuja el coleccionable (Avast/Medicina)
+        function drawAvast(item) {
+            const x = item.x;
+            const y = item.y;
+            const size = item.width;
+            
+            ctx.fillStyle = '#3b82f6'; // Azul (Antivirus)
+            
+            // Píldora (rectángulo redondeado)
+            ctx.beginPath();
+            ctx.moveTo(x + size * 0.2, y);
+            ctx.lineTo(x + size * 0.8, y);
+            ctx.arcTo(x + size, y, x + size, y + size * 0.2, size * 0.2);
+            ctx.lineTo(x + size, y + size * 0.8);
+            ctx.arcTo(x + size, y + size, x + size * 0.8, y + size, size * 0.2);
+            ctx.lineTo(x + size * 0.2, y + size);
+            ctx.arcTo(x, y + size, x, y + size * 0.8, size * 0.2);
+            ctx.lineTo(x, y + size * 0.2);
+            ctx.arcTo(x, y, x + size * 0.2, y, size * 0.2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Cruz (+) blanca
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x + size * 0.45, y + size * 0.2, size * 0.1, size * 0.6);
+            ctx.fillRect(x + size * 0.2, y + size * 0.45, size * 0.6, size * 0.1);
+        }
+
 
         function drawGround() {
-            // Línea de suelo en verde sólido
+            // Línea de suelo en verde sólido (representa la línea de seguridad o el escritorio)
             ctx.strokeStyle = '#34d399'; 
             ctx.lineWidth = 2;
             ctx.beginPath();
-            // Dibujar la línea un poco más arriba del borde inferior del canvas
             ctx.moveTo(0, canvas.height - 1);
             ctx.lineTo(canvas.width, canvas.height - 1);
             ctx.stroke();
@@ -255,14 +375,49 @@
             ctx.fillStyle = '#a3e635'; // Texto de puntaje en Verde Neón
             ctx.font = '16px Inter';
             ctx.textAlign = 'right';
-            ctx.fillText('Puntaje: ' + score, canvas.width - 20, 30);
+            ctx.fillText('Virus Evadidos: ' + score, canvas.width - 20, 30); 
+        }
+        
+        function drawHealth() {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px Inter';
+            ctx.textAlign = 'left';
+            ctx.fillText('Salud:', 20, 30);
+            
+            // Dibuja la barra de salud
+            const barX = 75;
+            const barY = 15;
+            const barWidth = 100;
+            const barHeight = 15;
+            
+            // Fondo de la barra (máxima salud)
+            ctx.fillStyle = '#374151'; // Gris oscuro
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            // Salud actual
+            const currentHealthWidth = (healthPoints / MAX_HEALTH) * barWidth;
+            
+            // Color de la barra basado en la salud
+            if (healthPoints > 2) {
+                ctx.fillStyle = '#4ade80'; // Verde brillante
+            } else if (healthPoints === 2) {
+                ctx.fillStyle = '#facc15'; // Amarillo
+            } else {
+                ctx.fillStyle = '#ef4444'; // Rojo (peligro)
+            }
+            
+            ctx.fillRect(barX, barY, currentHealthWidth, barHeight);
+
+            // Borde
+            ctx.strokeStyle = '#a3e635';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
         }
 
         // --- Lógica del Juego ---
 
         function jump() {
             if (!isGameRunning) {
-                // Si el juego no está corriendo, no saltes
                 return;
             }
             if (!isJumping) {
@@ -273,10 +428,9 @@
 
         function handleDinoMovement() {
             if (isJumping) {
-                verticalVelocity += gravity; // Aplica gravedad
+                verticalVelocity += gravity; 
                 dino.y += verticalVelocity;
 
-                // Si toca el suelo (usando la variable dinámica groundLevelY)
                 if (dino.y >= groundLevelY) {
                     dino.y = groundLevelY;
                     isJumping = false;
@@ -286,59 +440,124 @@
         }
 
         function spawnObstacle() {
-            // Factor de aparición normal: 90 a 120 frames
-            let spawnRange = 90; 
+            // Configuración de aparición fácil (de 100 a 140 frames)
+            let spawnRange = 100; 
             
-            // Si el puntaje es alto, el rango de aparición se reduce (más obstáculos)
             if (score > 30) {
-                 spawnRange = 60; // Aparece más rápido (entre 60 y 90 frames)
+                 spawnRange = 70; 
             } else if (score > 15) {
-                spawnRange = 75; // Aparece un poco más rápido (entre 75 y 105 frames)
+                spawnRange = 85; 
             }
 
+            // Aumentar la variedad de enemigos a medida que sube el puntaje
+            let obstacleTypes = ['virus'];
+            if (score > 10) obstacleTypes.push('trojan');
+            if (score > 25) obstacleTypes.push('bomb');
 
-            if (frameCount % (Math.floor(Math.random() * 30) + spawnRange) === 0) {
-                const cactusHeight = 20 + Math.random() * 20; 
+
+            if (frameCount % (Math.floor(Math.random() * 40) + spawnRange) === 0) { 
+                const typeIndex = Math.floor(Math.random() * obstacleTypes.length);
+                const type = obstacleTypes[typeIndex];
                 
-                const cactus = {
-                    width: 15 + Math.random() * 10, 
-                    height: cactusHeight, 
+                const virusHeight = 25 + Math.random() * 20; 
+                
+                const obstacle = {
+                    type: type,
+                    width: 25 + Math.random() * 10, 
+                    height: virusHeight, 
                     x: canvas.width,
-                    y: groundLevelY + (dino.height - cactusHeight)
+                    y: groundLevelY + (dino.height - virusHeight),
+                    isHit: false // Flag para prevenir doble choque
                 };
 
-                obstacles.push(cactus);
+                obstacles.push(obstacle);
+            }
+        }
+        
+        function spawnCollectible() {
+             // Aparece un Avast entre 300 y 600 frames (mucho menos frecuente que los obstáculos)
+            if (frameCount % (Math.floor(Math.random() * 300) + 300) === 0) {
+                const itemSize = 20;
+                const item = {
+                    type: 'avast',
+                    width: itemSize,
+                    height: itemSize,
+                    x: canvas.width,
+                    // Aparece flotando en el aire (no en el suelo)
+                    y: groundLevelY - Math.floor(Math.random() * 50) - 20, 
+                    isCollected: false
+                };
+                collectibles.push(item);
             }
         }
 
+        function isColliding(a, b) {
+            return (
+                a.x < b.x + b.width &&
+                a.x + a.width > b.x &&
+                a.y < b.y + b.height &&
+                a.y + a.height > b.y
+            );
+        }
+
+
         function handleObstacles() {
             for (let i = 0; i < obstacles.length; i++) {
-                const cactus = obstacles[i];
-                cactus.x -= gameSpeed; // Mueve el cactus a la izquierda
-                drawCactus(cactus);
+                const obstacle = obstacles[i];
+                obstacle.x -= gameSpeed; // Mueve el obstáculo a la izquierda
+                drawObstacle(obstacle); 
 
-                // Colisión (bounding box simple)
-                if (
-                    dino.x < cactus.x + cactus.width &&
-                    dino.x + dino.width > cactus.x &&
-                    dino.y < cactus.y + cactus.height &&
-                    dino.y + dino.height > cactus.y
-                ) {
-                    // ¡Colisión! Game Over
-                    isGameRunning = false;
-                    drawInitialScreen(true);
-                    return;
+                // --- Detección de Colisión (Obstáculos) ---
+                if (isColliding(dino, obstacle) && !obstacle.isHit) {
+                    // ¡Colisión!
+                    obstacle.isHit = true; // Marca como golpeado para no restar vida de nuevo
+                    healthPoints--; // Resta un punto de vida
+                    
+                    if (healthPoints <= 0) {
+                        isGameRunning = false;
+                        drawInitialScreen(true);
+                        return;
+                    }
                 }
 
                 // Eliminar obstáculos que están fuera de la pantalla
-                if (cactus.x + cactus.width < 0) {
+                if (obstacle.x + obstacle.width < 0) {
                     obstacles.splice(i, 1);
                     i--; // Ajustar el índice
-                    score++; // Aumenta el puntaje por cada obstáculo pasado
+                    score++; // Aumenta el puntaje por cada virus evadido (o golpeado y pasado)
                 }
             }
-            // Aumentar la velocidad del juego más rápido
-            gameSpeed += 0.01; 
+            // Aumentar la velocidad del juego más lentamente
+            gameSpeed += 0.005; 
+        }
+        
+        function handleCollectibles() {
+            for (let i = 0; i < collectibles.length; i++) {
+                const item = collectibles[i];
+                item.x -= gameSpeed; // Mueve el Avast a la izquierda
+                drawAvast(item);
+
+                // --- Detección de Recolección ---
+                if (isColliding(dino, item) && !item.isCollected) {
+                    // ¡Recolectado!
+                    item.isCollected = true;
+                    
+                    if (healthPoints < MAX_HEALTH) {
+                        healthPoints++; // Suma un punto de vida (Avast)
+                    }
+                    
+                    // Eliminar Avast después de recolectar
+                    collectibles.splice(i, 1);
+                    i--; 
+                    continue;
+                }
+                
+                // Eliminar Avast que están fuera de la pantalla
+                if (item.x + item.width < 0) {
+                    collectibles.splice(i, 1);
+                    i--; // Ajustar el índice
+                }
+            }
         }
 
         // Bucle Principal del Juego
@@ -348,23 +567,30 @@
             // 1. Limpiar Canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 2. Ocultar el mensaje (solo para asegurar que no se muestre)
+            // 2. Ocultar el mensaje 
             startMessage.classList.remove('opacity-100');
             startMessage.classList.add('opacity-0', 'pointer-events-none'); 
 
             // 3. Dibujar Suelo
             drawGround();
 
-            // 4. Manejar el Dinosaurio (Movimiento y Dibujo)
+            // 4. Manejar el Disco Duro (Movimiento y Dibujo)
             handleDinoMovement();
-            drawDino();
+            drawDino('#a3e635'); 
 
-            // 5. Manejar Obstáculos (Generación, Movimiento y Colisión)
+            // 5. Manejar Virus/Troyanos/Bombas (Generación, Movimiento y Colisión)
             spawnObstacle();
             handleObstacles();
+            
+            // 6. Manejar Avast (Generación, Movimiento y Colisión)
+            spawnCollectible();
+            handleCollectibles();
 
-            // 6. Dibujar Puntaje
+            // 7. Dibujar Puntaje
             drawScore();
+            
+            // 8. Dibujar Salud
+            drawHealth();
 
             frameCount++;
             
@@ -376,7 +602,7 @@
         // Teclado (ESPACIO)
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space') {
-                e.preventDefault(); // Previene el scroll de la página
+                e.preventDefault(); 
                 if (!isGameRunning) {
                     startGame();
                 } else {
@@ -385,9 +611,8 @@
             }
         });
 
-        // Click/Touch para Saltar (Si ya está corriendo)
+        // Click/Touch para Saltar 
         canvas.addEventListener('click', () => {
-             // Si el juego no está corriendo, tocar el canvas ahora no hace nada. El botón maneja el inicio.
              if (isGameRunning) {
                 jump();
             }
