@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Feria del Centro</title>
+    <title>Feria del Centro Coordinacion</title>
     <!-- Incluir Tailwind CSS desde CDN para un diseño moderno y adaptable -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuración para habilitar el modo oscuro de Tailwind -->
@@ -922,11 +922,17 @@
             { id: 344, name: 'TOALLAS ALIVE DIURNA"".' },
             { id: 344, name: 'TOALLAS ALIVE NOCTURNA "".' },
             { id: 344, name: 'MEGA BOL"".' },
+        // ... (lista de productos)
         ].map(product => {
-            // Extraer la unidad de medida del nombre del producto
+             // Extraer la unidad de medida del nombre del producto
             const match = product.name.match(/"(.*?)"|""/);
             const unit = match ? match[1].replace(/\d+/g, '').replace(/[.¿?¿¡]/g, '').trim().split(' ')[0] : '';
-            return { ...product, unit };
+            
+            // --- LÍNEA MODIFICADA ---
+            // Limpiar el nombre del producto para quitar las comillas y su contenido
+            const cleanedName = product.name.replace(/"(.*?)"|""/, '').trim();
+            
+            return { ...product, name: cleanedName, unit };
         });
 
         // Mapeo de empresas a NOMBRES de productos para el modo "Pedido Directo"
@@ -2091,6 +2097,5 @@
     </script>
 </body>
 </html>
-
 
 
