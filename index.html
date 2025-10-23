@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>PEDIDO CORDINACION</title>
+    <title>Buscador de Productos con Vista Previa</title>
     <!-- Incluir Tailwind CSS desde CDN para un diseño moderno y adaptable -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuración para habilitar el modo oscuro de Tailwind -->
@@ -925,7 +925,12 @@
             // Extraer la unidad de medida del nombre del producto
             const match = product.name.match(/"(.*?)"|""/);
             const unit = match ? match[1].replace(/\d+/g, '').replace(/[.¿?¿¡]/g, '').trim().split(' ')[0] : '';
-            return { ...product, unit };
+            
+            // --- NUEVA LÍNEA ---
+            // Crear un nombre limpio sin las comillas, su contenido, y puntos al final
+            const cleanName = product.name.replace(/"[^"]*"/g, '').trim().replace(/\.$/, '').trim();
+
+            return { ...product, unit, cleanName }; // Añadir cleanName al objeto
         });
 
         // Mapeo de empresas a NOMBRES de productos para el modo "Pedido Directo"
@@ -1101,8 +1106,8 @@
                 const isSelected = selectedProducts.some(p => p.id === item.id);
                 const cardClass = isSelected ? 'product-card selected' : 'product-card';
                 return `
-                    <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
-                        <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.name}</h2>
+                    <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.cleanName}">
+                        <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.cleanName}</h2>
                     </div>
                 `;
             }).join('');
@@ -1131,7 +1136,7 @@
                 const selectedHtml = sortedProducts.map(product => {
                     return `
                         <div class="bg-blue-50 dark:bg-slate-700 p-4 rounded-lg shadow-md flex justify-between items-center transition-all duration-200 border-2 border-blue-400 dark:border-blue-700">
-                            <span class="font-medium text-blue-800 dark:text-blue-200">${product.name}</span>
+                            <span class="font-medium text-blue-800 dark:text-blue-200">${product.cleanName}</span>
                             <div class="flex items-center gap-4">
                                 <span class="font-bold text-blue-900 dark:text-blue-100">${product.quantity} ${product.unit}</span>
                                 <button class="delete-button" data-id="${product.id}">Eliminar</button>
@@ -1286,8 +1291,8 @@
                     const isSelected = selectedProducts.some(p => p.id === item.id);
                     const cardClass = isSelected ? 'product-card selected' : 'product-card';
                     return `
-                        <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
-                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.name}</h2>
+                        <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.cleanName}">
+                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.cleanName}</h2>
                         </div>
                     `;
                 }).join('');
@@ -1331,8 +1336,8 @@
                     const isSelected = selectedProducts.some(p => p.id === item.id);
                     const cardClass = isSelected ? 'product-card selected' : 'product-card';
                     return `
-                        <div class="${cardClass} flex flex-col items-start w-full bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
-                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.name}</h2>
+                        <div class="${cardClass} flex flex-col items-start w-full bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.cleanName}">
+                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.cleanName}</h2>
                             <p class="text-xs text-purple-700 font-semibold mt-1">${item.company}</p>
                         </div>
                     `;
@@ -1362,7 +1367,14 @@
                         if (existingProductIndex !== -1) {
                             selectedProducts[existingProductIndex].quantity = quantity;
                         } else {
-                            selectedProducts.push({ id: currentProduct.id, name: currentProduct.name, quantity: quantity, unit: currentProduct.unit });
+                            const originalProduct = products.find(p => p.id === currentProduct.id);
+                            selectedProducts.push({ 
+                                id: currentProduct.id, 
+                                name: originalProduct.name, // Almacenar nombre original para exportar
+                                cleanName: originalProduct.cleanName, // Almacenar nombre limpio para UI
+                                quantity: quantity, 
+                                unit: currentProduct.unit 
+                            });
                         }
                     }
                     
@@ -1641,7 +1653,7 @@
                 const item = document.createElement('div');
                 item.classList.add('bg-blue-50', 'p-3', 'rounded-lg', 'flex', 'justify-between', 'items-center', 'text-sm');
                 item.innerHTML = `
-                    <span class="font-medium text-blue-800">${product.name}</span>
+                    <span class="font-medium text-blue-800">${product.cleanName}</span>
                     <span class="font-bold text-blue-900">${product.quantity} ${product.unit}</span>
                 `;
                 captureList.appendChild(item);
@@ -2157,6 +2169,7 @@
     </script>
 </body>
 </html>
+
 
 
 
